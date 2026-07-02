@@ -1,0 +1,14 @@
+/* Menyembunyikan icon cloud save bawaan Odoo 19 */
+.o_form_status_indicator .o_form_button_save {
+    display: none !important;
+}
+
+/* Menyembunyikan icon discard/undo bawaan Odoo 19 */
+.o_form_status_indicator .o_form_button_cancel {
+    display: none !important;
+}
+
+/* Opsional: Jika ingin menghilangkan seluruh area pembungkus indikator status agar rapi */
+.o_form_status_indicator {
+    display: none !important;
+}
