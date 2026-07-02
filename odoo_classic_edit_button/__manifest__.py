@@ -13,9 +13,9 @@
     ],
     'assets': {
         'web.assets_backend': [
-            'classic_edit_button/static/src/xml/form_view.xml',
-            'classic_edit_button/static/src/js/form_controller_patch.js',
-            'classic_edit_button/static/src/css/form_controller.css',
+            'odoo_classic_edit_button/static/src/xml/form_view.xml',
+            'odoo_classic_edit_button/static/src/js/form_controller_patch.js',
+            'odoo_classic_edit_button/static/src/css/form_controller.css',
         ],
     },
     'images': [
