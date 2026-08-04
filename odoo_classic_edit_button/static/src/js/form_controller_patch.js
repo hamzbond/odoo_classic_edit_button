@@ -6,15 +6,36 @@ import { ConfirmationDialog } from "@web/core/confirmation_dialog/confirmation_d
 import { _t } from "@web/core/l10n/translation";
 import { FetchRecordError } from "@web/model/relational_model/errors";
 import { executeButtonCallback } from "@web/views/view_button/view_button_hook";
+import { exprToBoolean } from "@web/core/utils/strings";
 
 patch(FormController.prototype, {
     get modelParams() {
         const params = super.modelParams;
         // Force readonly for existing records unless mode is explicitly set via props
-        if (!this.props.mode && this.canEdit && params.config.resId) {
+        if (!this.props.mode && this.canEdit && params.config.resId && !this.hasStandaloneFooter()) {
             params.config.mode = "readonly";
         }
         return params;
+    },
+
+    // Dialogs whose arch defines its own <footer> (e.g. "My Preferences") never render
+    // the default button slot ("web.FormView.Buttons", where our Edit button lives) unless
+    // the footer opts back in via replace="0" (see web's FormCompiler.compileFooter). Without
+    // that opt-in, forcing readonly here would strand the user on a view with no way to edit,
+    // since our Edit button never gets a chance to render. Such dialogs must instead open
+    // directly in edit mode, relying on their own Save/Cancel-style buttons (e.g. "Update
+    // Preferences") to persist — the regular (non-dialog) form view keeps the current
+    // readonly-by-default + Edit button behavior untouched.
+    hasStandaloneFooter() {
+        if (!this.env.inDialog) {
+            return false;
+        }
+        const footer = this.props.archInfo.xmlDoc.querySelector("footer:not(field footer)");
+        if (!footer) {
+            return false;
+        }
+        const replace = footer.getAttribute("replace");
+        return !(replace && !exprToBoolean(replace));
     },
 
     editRecord() {
@@ -142,7 +163,7 @@ patch(FormController.prototype, {
             }
         }
         // Ensure new record opens in readonly
-        if (this.model.root.resId && this.canEdit && !this.props.mode) {
+        if (this.model.root.resId && this.canEdit && !this.props.mode && !this.hasStandaloneFooter()) {
             await this.model.root.switchMode("readonly");
         }
     },

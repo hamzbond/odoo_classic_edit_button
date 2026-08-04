@@ -129,6 +129,13 @@
 
             <div style="max-width:1050px; margin:18px auto 0 auto;">
                 <div style="border:1px solid #eef2f7; border-radius:16px; padding:18px 22px; margin-bottom:14px; background:#ffffff;">
+                    <div style="font-size:16px; font-weight:900; color:#4338ca; margin-bottom:8px;">19.0.1.1.1</div>
+                    <ul style="margin:0; padding-left:18px; color:#334155; font-size:14.5px; line-height:1.85;">
+                        <li><b>Fix:</b> dialogs whose view defines its own custom <code>&lt;footer&gt;</code> (e.g. the "My Preferences" popup, with its "Update Preferences"/"Discard" buttons) were stuck permanently readonly with no way to edit, because Odoo never renders the default button slot — where this module's Edit button lives — alongside a custom footer unless the arch opts in with <code>replace="0"</code>. Such dialogs now open directly in edit mode instead, relying on their own Save-style button to persist changes. Regular (non-dialog) form views are unaffected and keep the existing readonly-by-default + Edit button flow.</li>
+                    </ul>
+                </div>
+
+                <div style="border:1px solid #eef2f7; border-radius:16px; padding:18px 22px; margin-bottom:14px; background:#ffffff;">
                     <div style="font-size:16px; font-weight:900; color:#4338ca; margin-bottom:8px;">19.0.1.1.0</div>
                     <ul style="margin:0; padding-left:18px; color:#334155; font-size:14.5px; line-height:1.85;">
                         <li><b>Fix:</b> leaving the form (browser refresh/close, or navigating away in-app) while in edit mode with unsaved changes used to silently auto-save them (Odoo's modern urgentSave/beforeLeave auto-save behavior), defeating the module's purpose. Unsaved changes are no longer persisted behind the user's back.</li>
