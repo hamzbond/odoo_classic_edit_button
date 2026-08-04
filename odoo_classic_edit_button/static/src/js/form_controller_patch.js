@@ -5,6 +5,7 @@ import { patch } from "@web/core/utils/patch";
 import { ConfirmationDialog } from "@web/core/confirmation_dialog/confirmation_dialog";
 import { _t } from "@web/core/l10n/translation";
 import { FetchRecordError } from "@web/model/relational_model/errors";
+import { executeButtonCallback } from "@web/views/view_button/view_button_hook";
 
 patch(FormController.prototype, {
     get modelParams() {
@@ -26,15 +27,18 @@ patch(FormController.prototype, {
             return this.model.root.switchMode("readonly");
         }
 
-        // Eksekusi penyimpanan data ke server secara direct
-        const saved = await this.save(params);
-        
-        // Jika berhasil disimpan, kunci kembali tampilan form menjadi readonly
-        if (saved !== false) {
-            await this.model.root.switchMode("readonly");
-        }
-        
-        return saved;
+        // Bungkus dengan executeButtonCallback (perilaku asli Odoo) agar tombol-tombol
+        // ter-disable selama proses simpan, mencegah double-submit akibat klik ganda.
+        return executeButtonCallback(this.ui.activeElement, async () => {
+            const saved = await this.save(params);
+
+            // Jika berhasil disimpan, kunci kembali tampilan form menjadi readonly
+            if (saved !== false) {
+                await this.model.root.switchMode("readonly");
+            }
+
+            return saved;
+        });
     },
 
     async discard() {
@@ -54,26 +58,50 @@ patch(FormController.prototype, {
         }
     },
 
-    async beforeLeave() {
-        // Only auto-save if currently in edit mode
-        if (this.model.root.isInEdition && this.model.root.dirty) {
-            return this.save({
-                reload: false,
-                onError: this.onSaveError.bind(this),
+    async beforeLeave(options = {}) {
+        // Nothing to protect if we're not editing, or the framework explicitly asks to
+        // leave without checks (e.g. "Discard" was already chosen on the error dialog).
+        if (!this.model.root.isInEdition || options.forceLeave) {
+            return;
+        }
+        const dirty = await this.model.root.isDirty();
+        if (!dirty) {
+            return;
+        }
+        // Classic Odoo confirmation: ask before discarding unsaved changes and leaving,
+        // instead of silently auto-saving (modern default) or silently leaving.
+        return new Promise((resolve) => {
+            this.dialogService.add(ConfirmationDialog, {
+                title: _t("Unsaved changes"),
+                body: _t(
+                    "If you leave now, your changes will be lost. Are you sure you want to continue?"
+                ),
+                confirmLabel: _t("Discard changes"),
+                cancelLabel: _t("Stay on this page"),
+                confirm: async () => {
+                    await this.model.root.discard();
+                    resolve();
+                },
+                // Any way of closing the dialog without confirming (Cancel, Escape, X)
+                // must block the navigation and keep the user on the current page.
+                cancel: () => resolve(false),
             });
+        });
+    },
+
+    // Disable the modern "silent auto-save" on browser refresh/close (core calls
+    // urgentSave() here): this module's whole point is manual Save/Discard, so unsaved
+    // changes must never be persisted behind the user's back on unload. Instead, trigger
+    // the browser's native "leave site?" prompt, matching classic pre-autosave Odoo.
+    beforeUnload(ev) {
+        if (this.model.root.isInEdition && this.model.root.dirty) {
+            ev.preventDefault();
+            ev.returnValue = "";
         }
     },
 
-    async beforeVisibilityChange() {
-        // Only auto-save if currently in edit mode
-        if (
-            document.visibilityState === "hidden" &&
-            this.formInDialog === 0 &&
-            this.model.root.isInEdition
-        ) {
-            return this.model.root.save();
-        }
-    },
+    // Same reasoning as beforeUnload: don't auto-save when the tab is hidden/switched.
+    beforeVisibilityChange() {},
 
     async onPagerUpdate({ offset, resIds }) {
         const isEditing = this.model.root.isInEdition;
@@ -82,7 +110,7 @@ patch(FormController.prototype, {
             try {
                 if (dirty) {
                     await this.model.root.save({
-                        onError: this.onSaveError.bind(this),
+                        onError: (error, options) => this.onSaveError(error, options, true),
                         nextId: resIds[offset],
                     });
                 } else {

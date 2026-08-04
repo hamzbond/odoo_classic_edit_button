@@ -97,7 +97,7 @@
                     <li>Make modifications safely across any fields without triggering real-time background saves.</li>
                     <li>Click <b>Save</b> to commit data permanently, or <b>Cancel</b> to revert changes back to readonly.</li>
                     <li>Creating <b>new entries</b> remains completely native — allowing immediate typing without manual unlocks.</li>
-                    <li>When leaving breadcrumbs or closing pages in active edit sessions, the module cleanly triggers standard fallback auto-save loops to secure current drafts.</li>
+                    <li>When leaving an active edit session with unsaved changes (breadcrumb navigation, closing the tab, refreshing), the module never auto-saves silently — it asks first, just like classic pre-autosave Odoo.</li>
                 </ol>
             </div>
         </div>
@@ -119,6 +119,33 @@
                     Active Form Edit Mode with Text Save and Discard Controls
                 </div>
                 <img src="screenshot2.png" alt="Edit Mode with Save and Cancel">
+            </div>
+        </div>
+
+        <div style="padding:18px 42px 12px 42px; border-top:1px solid #eef2f7;">
+            <h2 style="margin:0; font-size:26px; font-weight:900; letter-spacing:-0.02em; text-align:center; color:#0f172a;">
+                Changelog
+            </h2>
+
+            <div style="max-width:1050px; margin:18px auto 0 auto;">
+                <div style="border:1px solid #eef2f7; border-radius:16px; padding:18px 22px; margin-bottom:14px; background:#ffffff;">
+                    <div style="font-size:16px; font-weight:900; color:#4338ca; margin-bottom:8px;">19.0.1.1.0</div>
+                    <ul style="margin:0; padding-left:18px; color:#334155; font-size:14.5px; line-height:1.85;">
+                        <li><b>Fix:</b> leaving the form (browser refresh/close, or navigating away in-app) while in edit mode with unsaved changes used to silently auto-save them (Odoo's modern urgentSave/beforeLeave auto-save behavior), defeating the module's purpose. Unsaved changes are no longer persisted behind the user's back.</li>
+                        <li><b>Feature:</b> navigating away in-app (breadcrumb, opening another record, etc.) with unsaved changes now shows a classic "Unsaved changes" confirmation dialog (Discard changes / Stay on this page), instead of auto-saving or silently discarding.</li>
+                        <li><b>Feature:</b> refreshing/closing the browser tab with unsaved changes now triggers the browser's native "leave site?" prompt instead of silently auto-saving.</li>
+                        <li>Also disabled the auto-save on tab visibility change (switching tabs/apps), for the same reason.</li>
+                    </ul>
+                </div>
+
+                <div style="border:1px solid #eef2f7; border-radius:16px; padding:18px 22px; margin-bottom:14px; background:#ffffff;">
+                    <div style="font-size:16px; font-weight:900; color:#4338ca; margin-bottom:8px;">19.0.1.0.1</div>
+                    <ul style="margin:0; padding-left:18px; color:#334155; font-size:14.5px; line-height:1.85;">
+                        <li><b>Fix:</b> <code>beforeLeave()</code> ignored the <code>forceLeave</code> flag, so the framework's "leave without saving" requests (e.g. after choosing Discard on the save-error dialog) could still trigger an unwanted save attempt. Now delegates to core <code>FormController.beforeLeave()</code> so <code>forceLeave</code> is respected.</li>
+                        <li><b>Fix:</b> <code>saveButtonClicked()</code> no longer wrapped the save in <code>executeButtonCallback</code>, losing Odoo's built-in double-submit protection (buttons stayed enabled during save, so a fast double-click could fire two concurrent save requests). Restored.</li>
+                        <li><b>Fix:</b> <code>beforeLeave()</code> and <code>onPagerUpdate()</code> called <code>onSaveError()</code> without <code>leaving=true</code>, so save errors while navigating away or paging skipped Odoo's recovery dialog (Discard/Stay) and just threw the raw error instead. Fixed to match core behavior.</li>
+                    </ul>
+                </div>
             </div>
         </div>
 
