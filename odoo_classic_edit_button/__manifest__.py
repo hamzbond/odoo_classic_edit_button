@@ -1,6 +1,6 @@
 {
     'name': 'Restore Classic Form Edit Button',
-    'version': '19.0.1.1.1',
+    'version': '19.0.1.2.0',
     'author': 'hamzbond',
     'maintainer': 'hamzbond',
     'summary': 'Restores the classic Edit button in form views, allowing users to switch between read-only and edit modes.',

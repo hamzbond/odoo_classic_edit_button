@@ -1,38 +1,30 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <templates xml:space="preserve">
-
     <!-- Extend FormView: Replace control-panel-create-button with Edit/Save/Cancel/New -->
-    <!-- Odoo 19: the "New" button is now a direct child of the slot <t> (the inner <t> wrapper was removed). -->
-    <t t-name="classic_form_edit_button.FormView" t-inherit="web.FormView" t-inherit-mode="extension">
-        <xpath expr="//t[@t-set-slot='control-panel-create-button']/button[hasclass('btn-outline-primary')]" position="replace">
-            <t t-if="canEdit and !model.root.isNew and model.root.isInEdition">
-                <button type="button" class="btn btn-primary o_form_button_save_edit" t-on-click.stop="() => this.saveButtonClicked({closable: true})">
-                    Save
-                </button>
-                <button type="button" class="btn btn-secondary o_form_button_cancel_edit ms-1" t-on-click.stop="discard">
-                    Cancel
-                </button>
+    <t t-name="form_edit_mode.FormView" t-inherit="web.FormView" t-inherit-mode="extension">
+        <xpath expr="//t[@t-set-slot='control-panel-create-button']/button[hasclass('o_form_button_create')]" position="replace">
+            
+            <!-- Tampilkan Save dan Cancel asalkan sedang dalam mode Edit (baik record baru maupun lama) -->
+            <t t-if="model.root.isInEdition">
+                <button type="button" class="btn btn-primary o_form_button_save_edit" t-on-click.stop="() => this.saveButtonClicked({closable: true})"> Save </button>
+                <button type="button" class="btn btn-secondary o_form_button_cancel_edit ms-1" t-on-click.stop="discard"> Discard </button>
             </t>
-            <t t-elif="canEdit and !model.root.isNew and !model.root.isInEdition">
-                <button type="button" class="btn btn-primary o_form_button_edit_mode" t-on-click.stop="editRecord">
-                    Edit
-                </button>
+            
+            <!-- Tampilkan Edit HANYA jika bukan record baru (karena record baru otomatis mode edit) -->
+            <t t-elif="canEdit and !model.root.isNew">
+                <button type="button" class="btn btn-primary o_form_button_edit_mode" t-on-click.stop="editRecord"> Edit </button>
             </t>
-            <t t-if="canCreate">
-                <button type="button" class="btn btn-outline-primary o_form_button_create ms-1" data-hotkey="c" t-on-click.stop="create">New</button>
-            </t>
+            
+            <!-- Tampilkan New HANYA saat tidak sedang mode edit -->
+            <button t-if="canCreate and !model.root.isInEdition" type="button" class="btn btn-outline-primary o_form_button_create ms-1" data-hotkey="c" t-on-click.stop="create">New</button>
         </xpath>
     </t>
 
-    <!-- Extend FormView.Buttons (dialog footer): Add Edit button in readonly mode -->
-    <!-- Odoo 19: the o_form_buttons_view wrapper div is gone; footer is a flat list of buttons.
-         Inject an Edit button before the readonly "New" (o_form_button_create) button. -->
-    <t t-name="classic_form_edit_button.FormViewButtons" t-inherit="web.FormView.Buttons" t-inherit-mode="extension">
-        <xpath expr="//button[hasclass('o_form_button_create')]" position="before">
-            <button t-if="!model.root.isInEdition and canEdit and !model.root.isNew" type="button" class="btn btn-primary o_form_button_edit_mode" t-on-click.stop="editRecord">
-                Edit
-            </button>
+    <!-- Dialog footer: Tidak ada masalah di sini, tetap pertahankan -->
+    <t t-name="form_edit_mode.FormViewButtons" t-inherit="web.FormView.Buttons" t-inherit-mode="extension">
+        <xpath expr="//button[hasclass('o_form_button_create')]" position="replace">
+            <button t-if="canEdit and !model.root.isNew and !model.root.isInEdition" type="button" class="btn btn-primary o_form_button_edit_mode" t-on-click.stop="editRecord"> Edit </button>
+            <button t-if="!model.root.isInEdition and canCreate" type="button" class="btn btn-secondary o_form_button_create" data-hotkey="c" t-on-click.stop="create"> New </button>
         </xpath>
     </t>
-
 </templates>

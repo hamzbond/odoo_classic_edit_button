@@ -129,6 +129,15 @@
 
             <div style="max-width:1050px; margin:18px auto 0 auto;">
                 <div style="border:1px solid #eef2f7; border-radius:16px; padding:18px 22px; margin-bottom:14px; background:#ffffff;">
+                    <div style="font-size:16px; font-weight:900; color:#4338ca; margin-bottom:8px;">19.0.1.2.0</div>
+                    <ul style="margin:0; padding-left:18px; color:#334155; font-size:14.5px; line-height:1.85;">
+                        <li><b>Fix:</b> <code>modelParams</code> replaced unreliable <code>props.mode</code> guard with internal <code>_classicEditRequested</code> flag to prevent a reactivity loop that forced the record back to readonly after clicking Edit — especially visible in one2many dialogs where fields stayed locked.</li>
+                        <li><b>Fix:</b> dialog Edit button XPath anchor changed from <code>o_form_button_create</code> to <code>button[1]</code> so the Edit button renders even when <code>canCreate</code> is false (i.e., the New button is absent).</li>
+                        <li><b>Improvement:</b> added <code>_classicEditRequested</code> flag cleanup in <code>discard()</code>, <code>saveButtonClicked()</code>, <code>beforeLeave</code>, and <code>onPagerUpdate()</code> to ensure consistent readonly enforcement after save/cancel/pager navigation.</li>
+                    </ul>
+                </div>
+
+                <div style="border:1px solid #eef2f7; border-radius:16px; padding:18px 22px; margin-bottom:14px; background:#ffffff;">
                     <div style="font-size:16px; font-weight:900; color:#4338ca; margin-bottom:8px;">19.0.1.1.1</div>
                     <ul style="margin:0; padding-left:18px; color:#334155; font-size:14.5px; line-height:1.85;">
                         <li><b>Fix:</b> dialogs whose view defines its own custom <code>&lt;footer&gt;</code> (e.g. the "My Preferences" popup, with its "Update Preferences"/"Discard" buttons) were stuck permanently readonly with no way to edit, because Odoo never renders the default button slot — where this module's Edit button lives — alongside a custom footer unless the arch opts in with <code>replace="0"</code>. Such dialogs now open directly in edit mode instead, relying on their own Save-style button to persist changes. Regular (non-dialog) form views are unaffected and keep the existing readonly-by-default + Edit button flow.</li>
