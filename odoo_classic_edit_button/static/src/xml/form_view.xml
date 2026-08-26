@@ -6,13 +6,13 @@
             
             <!-- Tampilkan Save dan Cancel asalkan sedang dalam mode Edit (baik record baru maupun lama) -->
             <t t-if="model.root.isInEdition">
-                <button type="button" class="btn btn-primary o_form_button_save_edit" t-on-click.stop="() => this.saveButtonClicked({closable: true})"> Save </button>
-                <button type="button" class="btn btn-secondary o_form_button_cancel_edit ms-1" t-on-click.stop="discard"> Discard </button>
+                <button type="button" class="btn btn-primary o_form_button_save_edit" data-hotkey="s" t-on-click.stop="() => this.saveButtonClicked({closable: true})"> Save </button>
+                <button type="button" class="btn btn-secondary o_form_button_cancel_edit ms-1" data-hotkey="j" t-on-click.stop="discard"> Discard </button>
             </t>
             
             <!-- Tampilkan Edit HANYA jika bukan record baru (karena record baru otomatis mode edit) -->
             <t t-elif="canEdit and !model.root.isNew">
-                <button type="button" class="btn btn-primary o_form_button_edit_mode" t-on-click.stop="editRecord"> Edit </button>
+                <button type="button" class="btn btn-primary o_form_button_edit_mode" data-hotkey="a" t-on-click.stop="editRecord"> Edit </button>
             </t>
             
             <!-- Tampilkan New HANYA saat tidak sedang mode edit -->
