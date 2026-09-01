@@ -20,8 +20,8 @@ patch(FormController.prototype, {
                 this.canEdit && 
                 this.model.root && 
                 !this.model.root.isNew &&
-                !this.env.inDialog && // <-- PENGECUALIAN 1: Jangan kunci dialog pop-up
-                !this.hasStandaloneFooter() // <-- PENGECUALIAN 2: Jangan kunci form dengan footer mandiri
+                !this.env.inDialog && 
+                !this.hasStandaloneFooter()
             ) {
                 this.model.root.switchMode("readonly");
             }
@@ -29,16 +29,15 @@ patch(FormController.prototype, {
     },
 
     _classicEditRequested: false,
+    _allowManualSave: false, // Flag untuk membatasi save hanya dari aksi manual
 
     get modelParams() {
         const params = super.modelParams;
         
-        // Biarkan pop-up dialog dan standalone footer mengikuti aturan native Odoo
         if (this.env.inDialog || this.hasStandaloneFooter()) {
             return params;
         }
 
-        // Minta form utama di-render sebagai mode "edit" di awal untuk memancing DynamicList
         if (this.canEdit && params.config.resId) {
             params.config.mode = "edit";
         }
@@ -62,6 +61,15 @@ patch(FormController.prototype, {
         await this.model.root.switchMode("edit");
     },
 
+    // Cegah autosave background / idle / click-outside jika bukan di dialog
+    async save(params = {}) {
+        if (this.env.inDialog || this.hasStandaloneFooter() || this._allowManualSave) {
+            return super.save(...arguments);
+        }
+        // Tolak / abaikan autosave otomatis dari useAutosave bawaan Odoo 19
+        return false;
+    },
+
     saveButtonClicked(params = {}) {
         const isDirtyCheck = async () => {
             const dirty = await this.model.root.isDirty();
@@ -71,7 +79,15 @@ patch(FormController.prototype, {
                 return this.model.root.switchMode("readonly");
             }
             
-            const saved = await this.save(params);
+            // Beri izin save manual
+            this._allowManualSave = true;
+            let saved = false;
+            try {
+                saved = await this.save(params);
+            } finally {
+                this._allowManualSave = false;
+            }
+
             if (saved !== false) {
                 this._classicEditRequested = false;
                 await this.model.root.switchMode("readonly");
@@ -138,10 +154,15 @@ patch(FormController.prototype, {
         const dirty = await this.model.root.isDirty();
         try {
             if (dirty) {
-                await this.model.root.save({
-                    onError: (error, options) => this.onSaveError(error, options, true),
-                    nextId: resIds[offset],
-                });
+                this._allowManualSave = true;
+                try {
+                    await this.model.root.save({
+                        onError: (error, options) => this.onSaveError(error, options, true),
+                        nextId: resIds[offset],
+                    });
+                } finally {
+                    this._allowManualSave = false;
+                }
             } else {
                 await this.model.load({ resId: resIds[offset] });
             }
