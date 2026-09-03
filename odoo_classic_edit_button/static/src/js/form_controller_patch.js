@@ -12,32 +12,43 @@ import { exprToBoolean } from "@web/core/utils/strings";
 patch(FormController.prototype, {
     setup() {
         super.setup(...arguments);
-        
-        // JURUS AUTO-KLIK CANCEL
+        this._classicEditRequested = false;
+        this._allowManualSave = false;
+
+        // JURUS AUTO-DISCARD YANG PASTI JALAN:
         onMounted(() => {
             if (
-                !this._classicEditRequested && 
-                this.canEdit && 
-                this.model.root && 
-                !this.model.root.isNew &&
-                !this.env.inDialog && 
+                !this._classicEditRequested &&
+                this.canEdit &&
+                !this.env.inDialog &&
                 !this.hasStandaloneFooter()
             ) {
-                this.model.root.switchMode("readonly");
+                // Gunakan setTimeout 0 atau tunggu model siap agar tidak balapan dengan proses internal load record
+                setTimeout(async () => {
+                    if (
+                        this.model.root &&
+                        !this.model.root.isNew &&
+                        !this._classicEditRequested
+                    ) {
+                        // Discard perubahan inisialisasi awal dan kunci form ke readonly
+                        await this.model.root.discard();
+                        if (this.model.root.mode !== "readonly") {
+                            await this.model.root.switchMode("readonly");
+                        }
+                    }
+                }, 0);
             }
         });
     },
 
-    _classicEditRequested: false,
-    _allowManualSave: false, // Flag untuk membatasi save hanya dari aksi manual
-
     get modelParams() {
         const params = super.modelParams;
-        
+
         if (this.env.inDialog || this.hasStandaloneFooter()) {
             return params;
         }
 
+        // Paksa mode "edit" di awal agar relasi x2many ikut ter-setup sebagai editable form
         if (this.canEdit && params.config.resId) {
             params.config.mode = "edit";
         }
@@ -61,25 +72,51 @@ patch(FormController.prototype, {
         await this.model.root.switchMode("edit");
     },
 
-    // Cegah autosave background / idle / click-outside jika bukan di dialog
+    // KUNCI DISABLE AUTOSAVE:
+    // Jangan return false mentah-mentah karena akan membatalkan edit cell x2many!
     async save(params = {}) {
+        // 1. Izinkan jika di dialog/wizard atau dipicu klik tombol Save manual
         if (this.env.inDialog || this.hasStandaloneFooter() || this._allowManualSave) {
             return super.save(...arguments);
         }
-        // Tolak / abaikan autosave otomatis dari useAutosave bawaan Odoo 19
+
+        // 2. Jika user sedang edit (klik Edit) atau record baru:
+        // Saat edit x2many, Odoo memanggil save() untuk sinkronisasi internal baris.
+        // Jika bukan klik tombol Save, kita izinkan proses record internal TAPI cegah server write.
+        // Cukup return false HANYA jika bukan dari internal field / form blur autosave.
+        if (this._classicEditRequested || (this.model.root && this.model.root.isNew)) {
+            // Cek apakah ada perubahan dirty. Jika autosave bawaan mau commit ke backend, tahan!
+            // Tapi biarkan operasi commit lokal (stayInEdition atau field commit) jalan.
+            if (params.stayInEdition || params.isInvalid) {
+                return super.save(...arguments);
+            }
+            
+            // Tahan autosave background/blur tanpa me-reset form
+            return false;
+        }
+
+        // Saat masih readonly (setelah trik discard), tolak autosave apapun
         return false;
+    },
+
+    beforeVisibilityChange() {
+        if (this.env.inDialog || this.hasStandaloneFooter()) {
+            return super.beforeVisibilityChange(...arguments);
+        }
+        // Matikan autosave saat ganti tab browser
+        return;
     },
 
     saveButtonClicked(params = {}) {
         const isDirtyCheck = async () => {
             const dirty = await this.model.root.isDirty();
-            
+
             if (!dirty && !this.model.root.isNew) {
                 this._classicEditRequested = false;
                 return this.model.root.switchMode("readonly");
             }
-            
-            // Beri izin save manual
+
+            // Buka gembok save manual
             this._allowManualSave = true;
             let saved = false;
             try {
@@ -94,13 +131,13 @@ patch(FormController.prototype, {
             }
             return saved;
         };
-        
+
         return executeButtonCallback(this.ui.activeElement, isDirtyCheck);
     },
 
     async discard() {
         this._classicEditRequested = false;
-        if (this.props && this.props.discardRecord) { 
+        if (this.props && this.props.discardRecord) {
             this.props.discardRecord(this.model.root);
             return;
         }
@@ -108,7 +145,7 @@ patch(FormController.prototype, {
         if (this.props && this.props.onDiscard) {
             this.props.onDiscard(this.model.root);
         }
-        
+
         if (this.env.inDialog) {
             await this.env.dialogData.close();
         } else if (this.model.root.isNew) {
@@ -118,15 +155,26 @@ patch(FormController.prototype, {
         }
     },
 
+    // KUNCI PERINGATAN PINDAH MENU / UNSAVED CHANGES:
     async beforeLeave({ forceLeave } = {}) {
-        if (!this.model.root.isInEdition || forceLeave) {
+        if (forceLeave) {
             return;
         }
-        const dirty = await this.model.root.isDirty();
-        if (!dirty) {
-            return;
-        }
+
+        // Cek dirty langsung dari model
+        const dirty = this.model.root && (await this.model.root.isDirty());
         
+        // Jika tidak ada perubahan, langsung keluar tanpa tanya
+        if (!dirty) {
+            if (this._classicEditRequested && this.model.root) {
+                this._classicEditRequested = false;
+                await this.model.root.switchMode("readonly");
+            }
+            return;
+        }
+
+        // Jika ADA perubahan (dirty = true) dan user mau pindah menu/breadcrumb:
+        // Munculkan dialog konfirmasi!
         return new Promise((resolve) => {
             this.dialogService.add(ConfirmationDialog, {
                 title: _t("Unsaved changes"),
@@ -136,6 +184,7 @@ patch(FormController.prototype, {
                 confirm: async () => {
                     this._classicEditRequested = false;
                     await this.model.root.discard();
+                    await this.model.root.switchMode("readonly");
                     resolve();
                 },
                 cancel: () => resolve(false),
@@ -144,7 +193,7 @@ patch(FormController.prototype, {
     },
 
     beforeUnload(ev) {
-        if (this.model.root.isInEdition && this.model.root.dirty) {
+        if (this.model.root && this.model.root.dirty) {
             ev.preventDefault();
             ev.returnValue = "";
         }
@@ -174,7 +223,7 @@ patch(FormController.prototype, {
             }
             throw e;
         }
-        
+
         this._classicEditRequested = false;
         await this.model.root.switchMode("readonly");
     },
